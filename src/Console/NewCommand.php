@@ -59,7 +59,7 @@ class NewCommand extends Command
         }
 
         $commands[] = "cd \"$workingDirectory\"";
-        $commands[] = "git clone https://github.com/jeffreyvr/tailpress.git . --q";
+        $commands[] = "git clone -b 1.0.0 https://github.com/jeffreyvr/tailpress.git . --q";
 
         if (PHP_OS_FAMILY == 'Windows') {
             $commands[] = "rmdir .git";
@@ -71,14 +71,14 @@ class NewCommand extends Command
 
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
             if ($name = $input->getOption('name')) {
-                foreach (new \RecursiveDirectoryIterator($workingDirectory) as $filename => $file) {
-                    if (!is_file($file)) {
-                        continue;
-                    }
+                $this->replaceInFile('TailPress', $name, $workingDirectory.'/package.json');
+                $this->replaceInFile('tailpress', $prefix, $workingDirectory.'/package.json');
+                $this->replaceInFile('https://github.com/jeffreyvr', 'https://github.com/username', $workingDirectory.'/package.json');
 
-                    $this->replaceInFile('TailPress', $name, $file);
-                    $this->replaceInFile('tailpress', $prefix, $file);
-                }
+                $this->replaceInFile('TailPress', $name, $workingDirectory.'/style.css');
+                $this->replaceInFile('tailpress', $prefix, $workingDirectory.'/style.css');
+
+                $this->replaceInFile('tailpress_', $prefix.'_', $workingDirectory.'/functions.php');
 
                 $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'name', $name);
 
@@ -101,6 +101,8 @@ class NewCommand extends Command
             if ($input->getOption('git')) {
                 $this->createRepository($workingDirectory, $input, $output);
             }
+
+            $output->writeln(PHP_EOL.'<info>Your theme is here: '.$workingDirectory.'</info>');
 
             $output->writeln(PHP_EOL.'<comment>Your boilerplate is ready, go create something beautiful!</comment>');
         }
@@ -148,7 +150,7 @@ class NewCommand extends Command
     {
         $content = file_get_contents($packageJson);
 
-        $content = preg_replace('/"'.$key.'": (.*)/', '"'.$key.'": "'.$value.'"', $content);
+        $content = preg_replace('/"'.$key.'": (.*)/', '"'.$key.'": "'.$value.'",', $content);
 
         file_put_contents($packageJson, $content);
     }
