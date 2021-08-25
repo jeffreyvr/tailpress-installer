@@ -3,3 +3,5 @@ composer.lock
 /.idea
 /.vscode
 /tests-output
+phpunit.xml
+.phpunit.result.cache
