@@ -16,7 +16,7 @@ This package is inspired by the [Laravel Installer](https://github.com/laravel/i
 
 ## Contributors
 * [Jeffrey van Rossum](https://github.com/jeffreyvr)
-* [All contributors](https://github.com/jeffreyvr/tailpress/graphs/contributors)
+* [All contributors](https://github.com/jeffreyvr/tailpress-installer/graphs/contributors)
 
 ## License
 MIT. Please see the [License File](/LICENSE) for more information.

@@ -59,7 +59,7 @@ class NewCommand extends Command
         }
 
         $commands[] = "cd \"$workingDirectory\"";
-        $commands[] = "git clone -b 1.0.0 https://github.com/jeffreyvr/tailpress.git . --q";
+        $commands[] = "git clone -b master https://github.com/jeffreyvr/tailpress.git . --q";
 
         if (PHP_OS_FAMILY == 'Windows') {
             $commands[] = "rmdir .git";
