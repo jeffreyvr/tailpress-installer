@@ -22,11 +22,15 @@ class NewCommand extends Command
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'The name of your theme', false)
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED,
-                'The branch that should be created for a new repository', $this->defaultBranch());
+                'The branch that should be created for a new repository', $this->defaultBranch())
+            ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.')
+            ->addOption('destination', null, InputOption::VALUE_NONE, 'Path to the destination.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $commands = [];
+
         $output->write(PHP_EOL."<fg=blue>
   _____     _ _ ____
  |_   _|_ _(_) |  _ \ _ __ ___  ___ ___
@@ -34,17 +38,20 @@ class NewCommand extends Command
    | | (_| | | |  __/| | |  __/\__ \__ \
    |_|\__,_|_|_|_|   |_|  \___||___/___/'</>".PHP_EOL.PHP_EOL);
 
-        $installWordPress = (new SymfonyStyle($input, $output))->confirm('Would you like to install WordPress as well?',
-            false);
+        $installWordPress = ($input->getOption('wordpress') || (new SymfonyStyle($input,
+                $output))->confirm('Would you like to install WordPress as well?',
+                false));
 
         $folder = $input->getArgument('folder');
+        $slug = $this->determineSlug($folder);
+        $prefix = $this->determineSlug($folder, true);
 
         $workingDirectory = $folder !== '.' ? getcwd().'/'.$folder : '.';
 
         if ($installWordPress) {
             $this->installWordPress($workingDirectory, $input, $output);
 
-            $workingDirectory = "$workingDirectory/wp-content/themes/{$folder}";
+            $workingDirectory = "$workingDirectory/wp-content/themes/{$slug}";
 
             $commands[] = "mkdir \"$workingDirectory\"";
         } else {
@@ -70,13 +77,13 @@ class NewCommand extends Command
                     }
 
                     $this->replaceInFile('TailPress', $name, $file);
-                    $this->replaceInFile('tailpress', $folder, $file);
+                    $this->replaceInFile('tailpress', $prefix, $file);
                 }
 
                 $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'name', $name);
 
-                if(file_exists($workingDirectory.'/tailpress.json')) {
-                    rename($workingDirectory.'/tailpress.json', $workingDirectory.'/'.$folder.'.json');
+                if (file_exists($workingDirectory.'/tailpress.json')) {
+                    rename($workingDirectory.'/tailpress.json', $workingDirectory.'/'.$slug.'.json');
                 }
             }
 
@@ -86,7 +93,7 @@ class NewCommand extends Command
             $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'version', '0.1.0');
 
             if ($installWordPress) {
-                $this->replaceInFile('database_name_here', $folder, $workingDirectory.'/../../../wp-config.php');
+                $this->replaceInFile('database_name_here', $prefix, $workingDirectory.'/../../../wp-config.php');
                 $this->replaceInFile('username_here', 'root', $workingDirectory.'/../../../wp-config.php');
                 $this->replaceInFile('password_here', 'root', $workingDirectory.'/../../../wp-config.php');
             }
@@ -103,26 +110,6 @@ class NewCommand extends Command
 
     protected function runCommands($commands, InputInterface $input, OutputInterface $output, array $env = [])
     {
-        if (!$output->isDecorated()) {
-            $commands = array_map(function ($value) {
-                if (substr($value, 0, 5) === 'chmod') {
-                    return $value;
-                }
-
-                return $value.' --no-ansi';
-            }, $commands);
-        }
-
-        if ($input->getOption('quiet')) {
-            $commands = array_map(function ($value) {
-                if (substr($value, 0, 5) === 'chmod') {
-                    return $value;
-                }
-
-                return $value.' --quiet';
-            }, $commands);
-        }
-
         $process = Process::fromShellCommandline(implode(' && ', $commands), null, $env, null, null);
 
         if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
@@ -209,5 +196,16 @@ class NewCommand extends Command
         $output = trim($process->getOutput());
 
         return $process->isSuccessful() && $output ? $output : 'main';
+    }
+
+    protected function determineSlug($folder, $sanitize = false)
+    {
+        $folder = explode('/', $folder);
+
+        if (!$sanitize) {
+            return end($folder);
+        }
+
+        return str_replace('-', '_', end($folder));
     }
 }
