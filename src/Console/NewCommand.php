@@ -71,8 +71,7 @@ class NewCommand extends Command
 
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
             if ($name = $input->getOption('name')) {
-                $this->replaceInFile('TailPress', $name, $workingDirectory.'/package.json');
-                $this->replaceInFile('tailpress', $prefix, $workingDirectory.'/package.json');
+                $this->replaceInFile('"tailpress"', '"'.$slug.'"', $workingDirectory.'/package.json');
                 $this->replaceInFile('https://github.com/jeffreyvr', 'https://github.com/username', $workingDirectory.'/package.json');
 
                 $this->replaceInFile('TailPress', $name, $workingDirectory.'/style.css');
