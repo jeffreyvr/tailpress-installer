@@ -78,6 +78,8 @@ class NewCommand extends Command
                 $this->replaceInFile('tailpress', $prefix, $workingDirectory.'/style.css');
 
                 $this->replaceInFile('tailpress_', $prefix.'_', $workingDirectory.'/functions.php');
+                $this->replaceInFile('tailpress_', $prefix.'_', $workingDirectory.'/header.php');
+                $this->replaceInFile('tailpress_', $prefix.'_', $workingDirectory.'/footer.php');
 
                 $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'name', $name);
 
@@ -95,6 +97,7 @@ class NewCommand extends Command
                 $this->replaceInFile('database_name_here', $prefix, $workingDirectory.'/../../../wp-config.php');
                 $this->replaceInFile('username_here', 'root', $workingDirectory.'/../../../wp-config.php');
                 $this->replaceInFile('password_here', 'root', $workingDirectory.'/../../../wp-config.php');
+                $this->replaceInFile("define( 'WP_DEBUG', false );", "define( 'WP_DEBUG', false );\ndefine( 'WP_ENVIRONMENT_TYPE', 'development' );", $workingDirectory.'/../../../wp-config.php');
             }
 
             if ($input->getOption('git')) {
@@ -140,7 +143,7 @@ class NewCommand extends Command
     {
         $content = file_get_contents($stylesheet);
 
-        $content = preg_replace('/'.$header.': (.*)/', 'Version: '.$value, $content);
+        $content = preg_replace('/'.$header.': (.*)/', $header . ': '.$value, $content);
 
         file_put_contents($stylesheet, $content);
     }
