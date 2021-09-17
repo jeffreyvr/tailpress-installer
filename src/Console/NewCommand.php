@@ -23,8 +23,7 @@ class NewCommand extends Command
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED,
                 'The branch that should be created for a new repository', $this->defaultBranch())
-            ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.')
-            ->addOption('destination', null, InputOption::VALUE_NONE, 'Path to the destination.');
+            ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -71,8 +70,6 @@ class NewCommand extends Command
 
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
             if ($name = $input->getOption('name')) {
-                $this->replaceInFile('"tailpress"', '"'.$slug.'"', $workingDirectory.'/package.json');
-                $this->replaceInFile('https://github.com/jeffreyvr', 'https://github.com/username', $workingDirectory.'/package.json');
 
                 $this->replaceInFile('TailPress', $name, $workingDirectory.'/style.css');
                 $this->replaceInFile('tailpress', $prefix, $workingDirectory.'/style.css');
@@ -81,7 +78,11 @@ class NewCommand extends Command
                 $this->replaceInFile('tailpress_', $prefix.'_', $workingDirectory.'/header.php');
                 $this->replaceInFile('tailpress_', $prefix.'_', $workingDirectory.'/footer.php');
 
-                $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'name', $name);
+                $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'name', $folder);
+                $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'text_domain', $folder);
+
+                $this->replaceInFile('https://github.com/jeffreyvr/tailpress', 'https://github.com/username/' . $folder, $workingDirectory.'/package.json');
+                $this->replaceInFile('tailpress.test', $folder . '.test', $workingDirectory.'/package.json');
 
                 if (file_exists($workingDirectory.'/tailpress.json')) {
                     rename($workingDirectory.'/tailpress.json', $workingDirectory.'/'.$slug.'.json');
