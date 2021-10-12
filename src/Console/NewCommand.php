@@ -61,7 +61,7 @@ class NewCommand extends Command
         $commands[] = "git clone -b master https://github.com/jeffreyvr/tailpress.git . --q";
 
         if (PHP_OS_FAMILY == 'Windows') {
-            $commands[] = "rmdir .git";
+            $commands[] = "rmdir /S /Q .git";
         } else {
             $commands[] = "rm -rf .git";
         }
