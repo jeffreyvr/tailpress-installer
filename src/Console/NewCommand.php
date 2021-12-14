@@ -21,9 +21,9 @@ class NewCommand extends Command
             ->addArgument('folder', InputArgument::REQUIRED)
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'The name of your theme', false)
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
-            ->addOption('branch', null, InputOption::VALUE_REQUIRED,
-                'The branch that should be created for a new repository', $this->defaultBranch())
-            ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.');
+            ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', $this->defaultBranch())
+            ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.')
+            ->addOption('compiler', 'esbuild', InputOption::VALUE_OPTIONAL, 'Compiling tool can either be esbuild or mix (Laravel Mix).');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -37,9 +37,15 @@ class NewCommand extends Command
    | | (_| | | |  __/| | |  __/\__ \__ \
    |_|\__,_|_|_|_|   |_|  \___||___/___/'</>".PHP_EOL.PHP_EOL);
 
-        $installWordPress = ($input->getOption('wordpress') || (new SymfonyStyle($input,
-                $output))->confirm('Would you like to install WordPress as well?',
-                false));
+        $installWordPress = ($input->getOption('wordpress') || (new SymfonyStyle(
+            $input,
+            $output
+        ))->confirm(
+            'Would you like to install WordPress as well?',
+            false
+        ));
+
+        $compiler = $input->getOption('compiler');
 
         $folder = $input->getArgument('folder');
         $slug = $this->determineSlug($folder);
@@ -60,17 +66,12 @@ class NewCommand extends Command
         $commands[] = "cd \"$workingDirectory\"";
         $commands[] = "git clone -b master https://github.com/jeffreyvr/tailpress.git . --q";
 
-        if (PHP_OS_FAMILY == 'Windows') {
-            $commands[] = "rmdir .git";
-        } else {
-            $commands[] = "rm -rf .git";
-        }
-
-        $commands[] = "npm install --q --no-progress";
-
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
-            if ($name = $input->getOption('name')) {
+            if ($compiler === 'mix') {
+                $this->replaceFilesWithStubs($workingDirectory, 'mix', ['package.json', 'webpack.mix.js', 'postcss.config.js']);
+            }
 
+            if ($name = $input->getOption('name')) {
                 $this->replaceInFile('TailPress', $name, $workingDirectory.'/style.css');
                 $this->replaceInFile('tailpress', $prefix, $workingDirectory.'/style.css');
 
@@ -90,8 +91,11 @@ class NewCommand extends Command
             }
 
             $this->replaceThemeHeader($workingDirectory.'/style.css', 'Version', '0.1.0');
-            $this->replaceThemeHeader($workingDirectory.'/style.css', 'Description',
-                'A WordPress theme made with TailPress.');
+            $this->replaceThemeHeader(
+                $workingDirectory.'/style.css',
+                'Description',
+                'A WordPress theme made with TailPress.'
+            );
             $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'version', '0.1.0');
 
             if ($installWordPress) {
@@ -100,6 +104,18 @@ class NewCommand extends Command
                 $this->replaceInFile('password_here', 'root', $workingDirectory.'/../../../wp-config.php');
                 $this->replaceInFile("define( 'WP_DEBUG', false );", "define( 'WP_DEBUG', false );\ndefine( 'WP_ENVIRONMENT_TYPE', 'development' );", $workingDirectory.'/../../../wp-config.php');
             }
+
+            $finalCommands = ["cd \"$workingDirectory\""];
+
+            if (PHP_OS_FAMILY == 'Windows') {
+                $finalCommands[] = "rmdir .git";
+            } else {
+                $finalCommands[] = "rm -rf .git";
+            }
+
+            $finalCommands[] = "npm install --q --no-progress";
+
+            $this->runCommands($finalCommands, $input, $output);
 
             if ($input->getOption('git')) {
                 $this->createRepository($workingDirectory, $input, $output);
@@ -147,6 +163,13 @@ class NewCommand extends Command
         $content = preg_replace('/'.$header.': (.*)/', $header . ': '.$value, $content);
 
         file_put_contents($stylesheet, $content);
+    }
+
+    protected function replaceFilesWithStubs(string $workingDirectory, string $stubFolder, array $stubs)
+    {
+        foreach ($stubs as $stub) {
+            file_put_contents($workingDirectory.'/' . $stub, file_get_contents(__DIR__ . '/../../stubs/'.$stubFolder.'/'.$stub.'.stub'));
+        }
     }
 
     protected function replacePackageJsonInfo(string $packageJson, string $key, string $value)
