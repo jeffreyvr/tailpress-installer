@@ -23,7 +23,7 @@ class NewCommand extends Command
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', $this->defaultBranch())
             ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.')
-            ->addOption('compiler', null, InputOption::VALUE_OPTIONAL, 'Compiling tool can either be esbuild or mix (Laravel Mix).', 'mix')
+            ->addOption('compiler', null, InputOption::VALUE_OPTIONAL, 'Compiling tool can either be esbuild or mix (Laravel Mix).', 'esbuild')
             ->addOption('dbname', null, InputOption::VALUE_OPTIONAL, 'The name of your database.')
             ->addOption('dbuser', null, InputOption::VALUE_OPTIONAL, 'The name of your database user.', 'root')
             ->addOption('dbpass', null, InputOption::VALUE_OPTIONAL, 'The password of your database.', 'root')
