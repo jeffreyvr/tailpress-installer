@@ -23,7 +23,11 @@ class NewCommand extends Command
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', $this->defaultBranch())
             ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.')
-            ->addOption('compiler', 'esbuild', InputOption::VALUE_OPTIONAL, 'Compiling tool can either be esbuild or mix (Laravel Mix).');
+            ->addOption('compiler', null, InputOption::VALUE_OPTIONAL, 'Compiling tool can either be esbuild or mix (Laravel Mix).', 'mix')
+            ->addOption('dbname', null, InputOption::VALUE_OPTIONAL, 'The name of your database.')
+            ->addOption('dbuser', null, InputOption::VALUE_OPTIONAL, 'The name of your database user.', 'root')
+            ->addOption('dbpass', null, InputOption::VALUE_OPTIONAL, 'The password of your database.', 'root')
+            ->addOption('dbhost', null, InputOption::VALUE_OPTIONAL, 'The host of your database.', 'localhost');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -99,9 +103,10 @@ class NewCommand extends Command
             $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'version', '0.1.0');
 
             if ($installWordPress) {
-                $this->replaceInFile('database_name_here', $prefix, $workingDirectory.'/../../../wp-config.php');
-                $this->replaceInFile('username_here', 'root', $workingDirectory.'/../../../wp-config.php');
-                $this->replaceInFile('password_here', 'root', $workingDirectory.'/../../../wp-config.php');
+                $this->replaceInFile('database_name_here', $input->getOption('dbname') ?? $prefix, $workingDirectory.'/../../../wp-config.php');
+                $this->replaceInFile('username_here', $input->getOption('dbuser'), $workingDirectory.'/../../../wp-config.php');
+                $this->replaceInFile('password_here', $input->getOption('dbpass'), $workingDirectory.'/../../../wp-config.php');
+                $this->replaceInFile('localhost', $input->getOption('dbhost'), $workingDirectory.'/../../../wp-config.php');
                 $this->replaceInFile("define( 'WP_DEBUG', false );", "define( 'WP_DEBUG', false );\ndefine( 'WP_ENVIRONMENT_TYPE', 'development' );", $workingDirectory.'/../../../wp-config.php');
             }
 
