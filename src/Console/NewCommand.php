@@ -113,7 +113,7 @@ class NewCommand extends Command
             $finalCommands = ["cd \"$workingDirectory\""];
 
             if (PHP_OS_FAMILY == 'Windows') {
-                $finalCommands[] = "rmdir .git";
+                $finalCommands[] = "rmdir /S /Q .git";
             } else {
                 $finalCommands[] = "rm -rf .git";
             }
