@@ -9,10 +9,19 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 class NewCommandTest extends TestCase
 {
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        exec("mkdir " . __DIR__ . '/../' . 'tests-output');
+    }
+
+
     public function test_it_can_scaffold_a_new_tailpress_theme()
     {
         $scaffoldDirectoryName = 'tests-output/just-tailpress';
-        $scaffoldDirectory = __DIR__.'/../'.$scaffoldDirectoryName;
+        $scaffoldDirectory = __DIR__ . '/../' . $scaffoldDirectoryName;
 
         if (file_exists($scaffoldDirectory)) {
             if (PHP_OS_FAMILY == 'Windows') {
@@ -30,14 +39,14 @@ class NewCommandTest extends TestCase
         $tester->execute(['folder' => $scaffoldDirectoryName, '--name' => 'Just TailPress']);
 
         $this->assertDirectoryExists($scaffoldDirectory);
-        $this->assertFileExists($scaffoldDirectory.'/functions.php');
-        $this->assertStringContainsString('just_tailpress', file_get_contents($scaffoldDirectory.'/functions.php'));
+        $this->assertFileExists($scaffoldDirectory . '/functions.php');
+        $this->assertStringContainsString('just_tailpress', file_get_contents($scaffoldDirectory . '/functions.php'));
     }
 
     public function test_it_can_scaffold_a_new_tailpress_theme_with_wordpress()
     {
         $scaffoldDirectoryName = 'tests-output/with-wordpress';
-        $scaffoldDirectory = __DIR__.'/../'.$scaffoldDirectoryName;
+        $scaffoldDirectory = __DIR__ . '/../' . $scaffoldDirectoryName;
 
         if (file_exists($scaffoldDirectory)) {
             if (PHP_OS_FAMILY == 'Windows') {
@@ -55,8 +64,10 @@ class NewCommandTest extends TestCase
         $tester->execute(['folder' => $scaffoldDirectoryName, '--name' => 'Just TailPress', '--wordpress' => true]);
 
         $this->assertDirectoryExists($scaffoldDirectory);
-        $this->assertFileExists($scaffoldDirectory.'/wp-content/themes/with-wordpress/functions.php');
-        $this->assertStringContainsString('with_wordpress',
-            file_get_contents($scaffoldDirectory.'/wp-content/themes/with-wordpress/functions.php'));
+        $this->assertFileExists($scaffoldDirectory . '/wp-content/themes/with-wordpress/functions.php');
+        $this->assertStringContainsString(
+            'with_wordpress',
+            file_get_contents($scaffoldDirectory . '/wp-content/themes/with-wordpress/functions.php')
+        );
     }
 }
