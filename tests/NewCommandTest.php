@@ -9,18 +9,22 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 class NewCommandTest extends TestCase
 {
+    protected string $testDirectory = 'tests-output';
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        exec("mkdir " . __DIR__ . '/../' . 'tests-output');
-    }
+        $testDirectoryName = __DIR__ . '/../' . $this->testDirectory;
 
+        if (!file_exists($testDirectoryName)) {
+            exec("mkdir " . __DIR__ . '/../' . $this->testDirectory);
+        }
+    }
 
     public function test_it_can_scaffold_a_new_tailpress_theme()
     {
-        $scaffoldDirectoryName = 'tests-output/just-tailpress';
+        $scaffoldDirectoryName =  $this->testDirectory . '/just-tailpress';
         $scaffoldDirectory = __DIR__ . '/../' . $scaffoldDirectoryName;
 
         if (file_exists($scaffoldDirectory)) {
@@ -45,7 +49,7 @@ class NewCommandTest extends TestCase
 
     public function test_it_can_scaffold_a_new_tailpress_theme_with_wordpress()
     {
-        $scaffoldDirectoryName = 'tests-output/with-wordpress';
+        $scaffoldDirectoryName = $this->testDirectory . '/with-wordpress';
         $scaffoldDirectory = __DIR__ . '/../' . $scaffoldDirectoryName;
 
         if (file_exists($scaffoldDirectory)) {
