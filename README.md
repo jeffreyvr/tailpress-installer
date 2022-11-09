@@ -10,6 +10,10 @@ It is possible to install WordPress through the installer. You will be prompted 
 
 Note that this will setup WordPress, but you still need a local development enviroment for PHP and MySQL. If you use MacOS, try out [Laravel Valet](https://laravel.com/docs/8.x/valet).
 
+## Release notes
+
+- Update version number in `bin/tailpress`.
+
 ## Thanks
 
 This package is inspired by the [Laravel Installer](https://github.com/laravel/installer).
