@@ -23,7 +23,7 @@ class NewCommand extends Command
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize a Git repository')
             ->addOption('branch', null, InputOption::VALUE_REQUIRED, 'The branch that should be created for a new repository', $this->defaultBranch())
             ->addOption('wordpress', null, InputOption::VALUE_NONE, 'Install WordPress.')
-            ->addOption('compiler', null, InputOption::VALUE_OPTIONAL, 'Compiling tool can either be esbuild or mix (Laravel Mix).', 'esbuild')
+            ->addOption('compiler', null, InputOption::VALUE_OPTIONAL, 'Compiling tool can either be mix (Laravel Mix) or esbuild.', 'mix')
             ->addOption('dbname', null, InputOption::VALUE_OPTIONAL, 'The name of your database.')
             ->addOption('dbuser', null, InputOption::VALUE_OPTIONAL, 'The name of your database user.', 'root')
             ->addOption('dbpass', null, InputOption::VALUE_OPTIONAL, 'The password of your database.', 'root')
@@ -68,11 +68,11 @@ class NewCommand extends Command
         }
 
         $commands[] = "cd \"$workingDirectory\"";
-        $commands[] = "git clone -b master https://github.com/jeffreyvr/tailpress.git . --q";
+        $commands[] = "git clone -b mix-as-default https://github.com/jeffreyvr/tailpress.git . --q";
 
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
-            if ($compiler === 'mix') {
-                $this->replaceFilesWithStubs($workingDirectory, 'mix', ['package.json', 'webpack.mix.js', 'postcss.config.js']);
+            if ($compiler === 'esbuild') {
+                $this->replaceFilesWithStubs($workingDirectory, 'esbuild', ['package.json', 'postcss.config.js']);
             }
 
             if ($name = $input->getOption('name')) {
