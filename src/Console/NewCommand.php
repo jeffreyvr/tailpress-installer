@@ -68,11 +68,12 @@ class NewCommand extends Command
         }
 
         $commands[] = "cd \"$workingDirectory\"";
-        $commands[] = "git clone -b mix-as-default https://github.com/jeffreyvr/tailpress.git . --q";
+        $commands[] = "git clone -b master https://github.com/jeffreyvr/tailpress.git . --q";
 
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
             if ($compiler === 'esbuild') {
                 $this->replaceFilesWithStubs($workingDirectory, 'esbuild', ['package.json', 'postcss.config.js']);
+                $this->deleteFiles($workingDirectory, ['webpack.mix.js', 'mix-manifest.json']);
             }
 
             if ($name = $input->getOption('name')) {
@@ -174,6 +175,13 @@ class NewCommand extends Command
     {
         foreach ($stubs as $stub) {
             file_put_contents($workingDirectory.'/' . $stub, file_get_contents(__DIR__ . '/../../stubs/'.$stubFolder.'/'.$stub.'.stub'));
+        }
+    }
+
+    protected function deleteFiles(string $workingDirectory, array $files)
+    {
+        foreach ($files as $file) {
+            unlink($workingDirectory.'/'.$file);
         }
     }
 
