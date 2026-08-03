@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use ZipArchive;
 
 class NewCommand extends Command
 {
@@ -53,7 +54,7 @@ class NewCommand extends Command
 
         $installWordPress = ($input->getOption('wordpress') || (new SymfonyStyle($input, $output))->confirm('Would you like to install WordPress as well?', false));
 
-        if($installWordPress) {
+        if ($installWordPress) {
             $dbName = $input->getOption('dbname') ?? (new SymfonyStyle($input, $output))->ask('What is the name of your database?', str_replace('-', '_', $folder));
             $dbUser = $input->getOption('dbuser') ?? (new SymfonyStyle($input, $output))->ask('What is the user of your database?', 'root');
             $dbPass = $input->getOption('dbpass') ?? (new SymfonyStyle($input, $output))->ask('What is the password of your database?');
@@ -63,71 +64,87 @@ class NewCommand extends Command
         $slug = $this->determineSlug($folder);
         $prefix = $this->determineSlug($folder, true);
 
-        $baseDirectory = $folder !== '.' ? getcwd().'/'.$folder : '.';
+        $baseDirectory = $folder !== '.' ? getcwd().DIRECTORY_SEPARATOR.$folder : getcwd();
         $workingDirectory = $baseDirectory;
 
         if ($installWordPress) {
-            $this->installWordPress($workingDirectory, $input, $output);
+            try {
+                $this->installWordPress($baseDirectory, $output);
+            } catch (RuntimeException $e) {
+                $output->writeln(PHP_EOL.'<error>'.$e->getMessage().'</error>');
 
-            $workingDirectory = "$workingDirectory/wp-content/themes/{$slug}";
+                return Command::FAILURE;
+            }
 
-            $commands[] = "mkdir \"$workingDirectory\"";
-        } else {
-            $commands[] = "mkdir \"$workingDirectory\"";
+            $workingDirectory = $baseDirectory.DIRECTORY_SEPARATOR.'wp-content'.DIRECTORY_SEPARATOR.'themes'.DIRECTORY_SEPARATOR.$slug;
         }
 
+        $this->ensureDirectory($workingDirectory);
+
         $version = '';
-        if($input->getOption('dev')) {
+        if ($input->getOption('dev')) {
             $version = '5.x-dev';
         }
 
-        $commands[] = "composer create-project tailpress/tailpress \"$workingDirectory\" {$version} --remove-vcs --prefer-dist --no-scripts";
-        $commands[] = "cd \"$workingDirectory\"";
+        $commands[] = 'composer create-project tailpress/tailpress '.$this->escapeArgument($workingDirectory).' '.$version.' --remove-vcs --prefer-dist --no-scripts';
 
         if (($process = $this->runCommands($commands, $input, $output))->isSuccessful()) {
-            $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'name', $prefix);
-            $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'text_domain', $prefix);
-            $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'version', '0.1.0');
-            $this->replacePackageJsonInfo($workingDirectory.'/package.json', 'author', $authorName);
+            $this->replacePackageJsonInfo($workingDirectory.DIRECTORY_SEPARATOR.'package.json', 'name', $prefix);
+            $this->replacePackageJsonInfo($workingDirectory.DIRECTORY_SEPARATOR.'package.json', 'text_domain', $prefix);
+            $this->replacePackageJsonInfo($workingDirectory.DIRECTORY_SEPARATOR.'package.json', 'version', '0.1.0');
+            $this->replacePackageJsonInfo($workingDirectory.DIRECTORY_SEPARATOR.'package.json', 'author', $authorName);
 
-            $this->replaceInFile('Jeffrey van Rossum', $authorName, $workingDirectory.'/composer.json');
-            $this->replaceInFile('jeffrey@vanrossum.dev', $authorEmail, $workingDirectory.'/composer.json');
+            $this->replaceInFile('Jeffrey van Rossum', $authorName, $workingDirectory.DIRECTORY_SEPARATOR.'composer.json');
+            $this->replaceInFile('jeffrey@vanrossum.dev', $authorEmail, $workingDirectory.DIRECTORY_SEPARATOR.'composer.json');
 
-            if (file_exists($workingDirectory.'/vite.config.mjs')) {
-                $this->replaceInFile('http://tailpress.test', $localDevUrl, $workingDirectory.'/vite.config.mjs');
-                $this->replaceInFile('wp-content/themes/tailpress', "wp-content/themes/{$prefix}", $workingDirectory.'/vite.config.mjs');
+            if (file_exists($workingDirectory.DIRECTORY_SEPARATOR.'vite.config.mjs')) {
+                $this->replaceInFile('http://tailpress.test', $localDevUrl, $workingDirectory.DIRECTORY_SEPARATOR.'vite.config.mjs');
+                // Theme directory keeps the folder slug (hyphens), not the text-domain prefix.
+                $this->replaceInFile('wp-content/themes/tailpress', "wp-content/themes/{$slug}", $workingDirectory.DIRECTORY_SEPARATOR.'vite.config.mjs');
             }
 
-            $this->replaceThemeHeader($workingDirectory.'/style.css', 'Theme Name', $name, $workingDirectory.'/style.css');
-            $this->replaceThemeHeader($workingDirectory.'/style.css', 'Author', $authorName, $workingDirectory.'/style.css');
-            $this->replaceThemeHeader($workingDirectory.'/style.css', 'Text Domain', $prefix, $workingDirectory.'/style.css');
-
-            $this->replaceThemeHeader($workingDirectory.'/style.css', 'Description', 'A WordPress theme made with TailPress.');
-            $this->replaceThemeHeader($workingDirectory.'/style.css', 'Version', '0.1.0');
+            $this->replaceThemeHeader($workingDirectory.DIRECTORY_SEPARATOR.'style.css', 'Theme Name', $name);
+            $this->replaceThemeHeader($workingDirectory.DIRECTORY_SEPARATOR.'style.css', 'Author', $authorName);
+            $this->replaceThemeHeader($workingDirectory.DIRECTORY_SEPARATOR.'style.css', 'Text Domain', $prefix);
+            $this->replaceThemeHeader($workingDirectory.DIRECTORY_SEPARATOR.'style.css', 'Description', 'A WordPress theme made with TailPress.');
+            $this->replaceThemeHeader($workingDirectory.DIRECTORY_SEPARATOR.'style.css', 'Version', '0.1.0');
 
             if ($installWordPress) {
-                $this->replaceInFile('database_name_here', $dbName, $workingDirectory.'/../../../wp-config.php');
-                $this->replaceInFile('username_here', $dbUser, $workingDirectory.'/../../../wp-config.php');
-                $this->replaceInFile('password_here', $dbPass ?? '', $workingDirectory.'/../../../wp-config.php');
-                $this->replaceInFile('localhost', $dbHost, $workingDirectory.'/../../../wp-config.php');
-                $this->replaceInFile("define( 'WP_DEBUG', false );", "define( 'WP_DEBUG', false );\ndefine( 'WP_ENVIRONMENT_TYPE', 'development' );", $workingDirectory.'/../../../wp-config.php');
+                $wpConfig = $baseDirectory.DIRECTORY_SEPARATOR.'wp-config.php';
+
+                if (! is_file($wpConfig)) {
+                    $output->writeln(PHP_EOL.'<error>WordPress was installed but wp-config.php is missing at '.$wpConfig.'.</error>');
+
+                    return Command::FAILURE;
+                }
+
+                $this->replaceInFile('database_name_here', $dbName, $wpConfig);
+                $this->replaceInFile('username_here', $dbUser, $wpConfig);
+                $this->replaceInFile('password_here', $dbPass ?? '', $wpConfig);
+                $this->replaceInFile('localhost', $dbHost, $wpConfig);
+                $this->replaceInFile(
+                    "define( 'WP_DEBUG', false );",
+                    "define( 'WP_DEBUG', false );\ndefine( 'WP_ENVIRONMENT_TYPE', 'development' );",
+                    $wpConfig
+                );
             }
 
-            $finalCommands = ["cd \"$workingDirectory\""];
+            $finalCommands = [];
 
-            if (PHP_OS_FAMILY == 'Windows') {
-                $finalCommands[] = "rmdir /S /Q .git";
-            } else {
-                $finalCommands[] = "rm -rf .git";
+            if (is_dir($workingDirectory.DIRECTORY_SEPARATOR.'.git')) {
+                if (PHP_OS_FAMILY === 'Windows') {
+                    $finalCommands[] = 'rmdir /S /Q '.$this->escapeArgument($workingDirectory.DIRECTORY_SEPARATOR.'.git');
+                } else {
+                    $finalCommands[] = 'rm -rf '.$this->escapeArgument($workingDirectory.DIRECTORY_SEPARATOR.'.git');
+                }
             }
 
-            if (file_exists($workingDirectory.'/composer.json')) {
-                $finalCommands[] = 'composer install';
+            if (file_exists($workingDirectory.DIRECTORY_SEPARATOR.'composer.json')) {
+                $finalCommands[] = 'composer install --working-dir='.$this->escapeArgument($workingDirectory);
             }
 
-            $finalCommands[] = "npm install --q --no-progress";
-
-            $finalCommands[] = "npm run build";
+            $finalCommands[] = 'npm install --q --no-progress --prefix '.$this->escapeArgument($workingDirectory);
+            $finalCommands[] = 'npm run build --prefix '.$this->escapeArgument($workingDirectory);
 
             $this->runCommands($finalCommands, $input, $output);
 
@@ -137,17 +154,21 @@ class NewCommand extends Command
 
             $output->writeln(PHP_EOL.'<comment>🌊 Your boilerplate is ready, go create something beautiful!</comment>');
             $output->writeln(PHP_EOL.'<info>🏗️ Your theme path: '.$workingDirectory.'</info>');
-            if($installWordPress) {
+            if ($installWordPress) {
                 $output->writeln(PHP_EOL.'<info>📝 Your WordPress path: '.$baseDirectory.'</info>');
             }
             $output->writeln(PHP_EOL.'<comment>✨ If you like TailPress, please consider starring the repo at https://github.com/tailpress/tailpress</comment>');
         }
 
-        return $process->getExitCode();
+        return $process->getExitCode() ?? Command::FAILURE;
     }
 
     protected function runCommands($commands, InputInterface $input, OutputInterface $output, array $env = [])
     {
+        if ($commands === []) {
+            return new Process([]);
+        }
+
         $process = Process::fromShellCommandline(implode(' && ', $commands), null, $env, null, null);
 
         if ('\\' !== DIRECTORY_SEPARATOR && file_exists('/dev/tty') && is_readable('/dev/tty')) {
@@ -167,6 +188,10 @@ class NewCommand extends Command
 
     protected function replaceInFile(string $search, string $replace, string $file)
     {
+        if (! is_file($file)) {
+            throw new RuntimeException("Unable to update missing file [{$file}].");
+        }
+
         file_put_contents(
             $file,
             str_replace($search, $replace, file_get_contents($file))
@@ -177,7 +202,7 @@ class NewCommand extends Command
     {
         $content = file_get_contents($stylesheet);
 
-        $content = preg_replace('/'.$header.': (.*)/', $header . ': '.$value, $content);
+        $content = preg_replace('/'.$header.': (.*)/', $header.': '.$value, $content);
 
         file_put_contents($stylesheet, $content);
     }
@@ -198,22 +223,172 @@ class NewCommand extends Command
         file_put_contents($packageJson, $content);
     }
 
-    protected function installWordPress(string $directory, InputInterface $input, OutputInterface $output)
+    /**
+     * Download and extract WordPress using PHP so paths with spaces and
+     * Windows shells work without relying on curl/tar/cp.
+     */
+    protected function installWordPress(string $directory, OutputInterface $output): void
     {
-        $commands = [
-            "mkdir $directory",
-            "cd $directory",
-            "curl -O https://wordpress.org/latest.tar.gz --no-progress-meter",
-            "tar -zxf latest.tar.gz",
-            "rm latest.tar.gz",
-            "cd wordpress",
-            "cp -rf . ..",
-            "cd ..",
-            "rm -R wordpress",
-            "cp wp-config-sample.php wp-config.php"
-        ];
+        $output->writeln('    <comment>Downloading WordPress…</comment>');
 
-        $this->runCommands($commands, $input, $output);
+        $this->ensureDirectory($directory);
+
+        $zipPath = $directory.DIRECTORY_SEPARATOR.'wordpress-latest.zip';
+        $this->downloadFile('https://wordpress.org/latest.zip', $zipPath);
+
+        $output->writeln('    <comment>Extracting WordPress…</comment>');
+
+        if (! class_exists(ZipArchive::class)) {
+            @unlink($zipPath);
+            throw new RuntimeException('The PHP ZipArchive extension is required to install WordPress.');
+        }
+
+        $zip = new ZipArchive;
+
+        if ($zip->open($zipPath) !== true) {
+            @unlink($zipPath);
+            throw new RuntimeException('Unable to open the WordPress archive.');
+        }
+
+        $extractPath = $directory.DIRECTORY_SEPARATOR.'.wordpress-extract';
+        $this->ensureDirectory($extractPath);
+
+        if (! $zip->extractTo($extractPath)) {
+            $zip->close();
+            @unlink($zipPath);
+            $this->deleteDirectory($extractPath);
+            throw new RuntimeException('Unable to extract the WordPress archive.');
+        }
+
+        $zip->close();
+        @unlink($zipPath);
+
+        $source = $extractPath.DIRECTORY_SEPARATOR.'wordpress';
+
+        if (! is_dir($source)) {
+            $this->deleteDirectory($extractPath);
+            throw new RuntimeException('Unexpected WordPress archive layout.');
+        }
+
+        $this->moveDirectoryContents($source, $directory);
+        $this->deleteDirectory($extractPath);
+
+        $sample = $directory.DIRECTORY_SEPARATOR.'wp-config-sample.php';
+        $config = $directory.DIRECTORY_SEPARATOR.'wp-config.php';
+
+        if (! is_file($sample)) {
+            throw new RuntimeException('wp-config-sample.php was not found after extracting WordPress.');
+        }
+
+        if (! copy($sample, $config)) {
+            throw new RuntimeException('Unable to create wp-config.php from the sample file.');
+        }
+
+        $output->writeln('    <info>WordPress installed.</info>');
+    }
+
+    protected function downloadFile(string $url, string $destination): void
+    {
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 120,
+                'header' => "User-Agent: TailPress Installer\r\n",
+            ],
+            'ssl' => [
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            ],
+        ]);
+
+        $data = @file_get_contents($url, false, $context);
+
+        if ($data === false) {
+            throw new RuntimeException("Unable to download WordPress from [{$url}].");
+        }
+
+        if (file_put_contents($destination, $data) === false) {
+            throw new RuntimeException("Unable to write WordPress archive to [{$destination}].");
+        }
+    }
+
+    protected function ensureDirectory(string $directory): void
+    {
+        if (is_dir($directory)) {
+            return;
+        }
+
+        if (! mkdir($directory, 0755, true) && ! is_dir($directory)) {
+            throw new RuntimeException("Unable to create directory [{$directory}].");
+        }
+    }
+
+    protected function moveDirectoryContents(string $source, string $destination): void
+    {
+        $this->ensureDirectory($destination);
+
+        $items = scandir($source);
+
+        if ($items === false) {
+            throw new RuntimeException("Unable to read directory [{$source}].");
+        }
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $from = $source.DIRECTORY_SEPARATOR.$item;
+            $to = $destination.DIRECTORY_SEPARATOR.$item;
+
+            if (is_dir($from)) {
+                $this->moveDirectoryContents($from, $to);
+                @rmdir($from);
+                continue;
+            }
+
+            if (! rename($from, $to) && ! (copy($from, $to) && unlink($from))) {
+                throw new RuntimeException("Unable to move [{$from}] to [{$to}].");
+            }
+        }
+    }
+
+    protected function deleteDirectory(string $directory): void
+    {
+        if (! is_dir($directory)) {
+            return;
+        }
+
+        $items = scandir($directory);
+
+        if ($items === false) {
+            return;
+        }
+
+        foreach ($items as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
+
+            $path = $directory.DIRECTORY_SEPARATOR.$item;
+
+            if (is_dir($path)) {
+                $this->deleteDirectory($path);
+                continue;
+            }
+
+            @unlink($path);
+        }
+
+        @rmdir($directory);
+    }
+
+    protected function escapeArgument(string $argument): string
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            return '"'.str_replace('"', '""', $argument).'"';
+        }
+
+        return escapeshellarg($argument);
     }
 
     protected function createRepository(string $directory, InputInterface $input, OutputInterface $output)
@@ -245,12 +420,14 @@ class NewCommand extends Command
 
     protected function determineSlug($folder, $sanitize = false)
     {
+        $folder = str_replace('\\', '/', $folder);
         $folder = explode('/', $folder);
+        $name = end($folder);
 
-        if (!$sanitize) {
-            return end($folder);
+        if (! $sanitize) {
+            return $name;
         }
 
-        return str_replace('-', '_', end($folder));
+        return str_replace('-', '_', $name);
     }
 }

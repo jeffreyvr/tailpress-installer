@@ -65,13 +65,24 @@ class NewCommandTest extends TestCase
 
         $tester = new CommandTester($app->find('new'));
 
-        $tester->execute(['folder' => $scaffoldDirectoryName, '--name' => 'Just TailPress', '--wordpress' => true, '--dev' => true]);
+        $tester->execute([
+            'folder' => $scaffoldDirectoryName,
+            '--name' => 'Just TailPress',
+            '--wordpress' => true,
+            '--dev' => true,
+            '--dbname' => 'test_db',
+            '--dbuser' => 'root',
+            '--dbpass' => '',
+            '--dbhost' => '127.0.0.1',
+        ]);
 
         $this->assertDirectoryExists($scaffoldDirectory);
+        $this->assertFileExists($scaffoldDirectory . '/wp-config.php');
         $this->assertFileExists($scaffoldDirectory . '/wp-content/themes/with-wordpress/functions.php');
-        // $this->assertStringContainsString(
-        //     'with_wordpress',
-        //     file_get_contents($scaffoldDirectory . '/wp-content/themes/with-wordpress/functions.php')
-        // );
+
+        $config = file_get_contents($scaffoldDirectory . '/wp-config.php');
+        $this->assertStringContainsString("define( 'DB_NAME', 'test_db' );", $config);
+        $this->assertStringContainsString("define( 'DB_HOST', '127.0.0.1' );", $config);
+        $this->assertStringContainsString("define( 'WP_ENVIRONMENT_TYPE', 'development' );", $config);
     }
 }
